@@ -159,6 +159,7 @@
 			echo "	<td>".escape($c['pcap_status'])."&nbsp;</td>\n";
 			echo "	<td class='no-button' style='text-align: right;'>\n";
 			if (count($files) > 0) {
+				echo "<a href='pcap_download.php?id=".escape($c['pcap_uuid'])."&all=1'><b>Download all</b></a><br />\n";
 				foreach ($files as $filename => $size) {
 					echo "<a href='pcap_download.php?id=".escape($c['pcap_uuid'])."&file=".urlencode($filename)."'>".escape($filename)."</a><br />\n";
 				}

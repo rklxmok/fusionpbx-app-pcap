@@ -68,8 +68,9 @@ extension is needed.
   timestamp default, or type one (sanitized to `A-Za-z0-9._-`).
 - The running banner shows captured size and time remaining, with **Stop
   now**.
-- Download any rotated file (`name.pcap`, `name.pcap1`, …) directly from the
-  list; delete removes the row and all its files.
+- **Download all** streams a single `.tar` of every rotated file for the
+  capture; individual rotated files (`name.pcap00`, `name.pcap01`, …) are
+  also downloadable one at a time. Delete removes the row and all its files.
 
 ## CLI harness
 

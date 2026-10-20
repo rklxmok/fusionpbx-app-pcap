@@ -75,9 +75,10 @@
 	echo "<br /><br />\n";
 
 //running capture status + stop
+	$running = false;
 	foreach ((array) $captures as $c) {
-		$running = true;
 		if ($c['pcap_status'] != 'running') { continue; }
+		$running = true;
 		$elapsed = time() - strtotime($c['insert_date']);
 		$remaining = max(0, intval($c['pcap_duration']) - $elapsed);
 		$total = 0;

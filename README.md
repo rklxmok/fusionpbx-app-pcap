@@ -65,7 +65,9 @@ extension is needed.
 
 - **Switch → Packet Capture** in the FusionPBX menu.
 - Pick the interface, duration, filter; leave the name empty for the UTC
-  timestamp default, or type one (sanitized to `A-Za-z0-9._-`).
+  timestamp default, or type one (sanitized to `A-Za-z0-9._-`). The capture
+  type is always prefixed: `sip-2026-10-20T154210Z.pcap`, `all-...`,
+  `sip_rtp-...` — files are self-describing on disk.
 - The running banner shows captured size and time remaining, with **Stop
   now**.
 - **Download all** streams a single `.tar` of every rotated file for the

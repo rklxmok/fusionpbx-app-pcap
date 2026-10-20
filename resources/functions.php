@@ -106,12 +106,15 @@ function pcap_start($database, $domain_uuid, $interface, $duration_h, $duration_
 	}
 	$bpf = $filters[$filter_key]['bpf'];
 
-	// filename: user-provided sanitized, else current UTC time-date
+	// filename: user-provided sanitized, else current UTC time-date; the
+	// capture type is always prefixed so files are self-describing
+	// (sip-2026-10-20T154210Z.pcap, all-..., sip_rtp-...)
 	$base = $name;
 	if ($base == '') { $base = gmdate("Y-m-d\THis\Z"); }
 	$base = preg_replace('/[^A-Za-z0-9._-]/', '_', $base);
 	$base = preg_replace('/\.pcap$/', '', $base);
 	if ($base == '' || $base == '.') { return [false, "Invalid capture name."]; }
+	$base = $filter_key."-".$base;
 
 	$dir = pcap_dir($database, $domain_uuid);
 	if (!is_dir($dir) || !is_writable($dir)) {

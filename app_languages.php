@@ -7,7 +7,7 @@
 	$text['label-duration']['en-us'] = "Duration";
 	$text['label-filter']['en-us'] = "Filter";
 	$text['label-name']['en-us'] = "Capture name";
-	$text['description-name']['en-us'] = "Leave empty to use the current UTC time-date (e.g. 2026-10-20T154210Z.pcap).";
+	$text['description-name']['en-us'] = "Leave empty to use the current UTC time-date. The capture type is always prefixed, e.g. sip-2026-10-20T154210Z.pcap.";
 
 	$text['button-start']['en-us'] = "Start capture";
 	$text['button-delete']['en-us'] = "Delete";

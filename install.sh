@@ -20,15 +20,34 @@ if [ "$(id -u)" != 0 ]; then
 fi
 if [ ! -d "$FUSIONPBX_DIR" ]; then
 	echo "FusionPBX not found at $FUSIONPBX_DIR (set FUSIONPBX_DIR=...)"; exit 1
-fi
-if [ -z "$TCPDUMP" ]; then
-	echo "tcpdump not found — install it first: apt-get install tcpdump"; exit 1
-fi
-if ! command -v setcap >/dev/null; then
-	echo "setcap not found — install libcap2-bin: apt-get install libcap2-bin"; exit 1
-fi
 
 echo "== Packet Capture installer =="
+
+fi
+# prerequisites: install anything missing via apt when available,
+# otherwise bail with instructions
+missing=""
+command -v tcpdump >/dev/null || missing="$missing tcpdump"
+command -v setcap >/dev/null || missing="$missing libcap2-bin"
+if [ -n "$missing" ]; then
+	if command -v apt-get >/dev/null; then
+		echo "== installing prerequisites:$missing"
+		DEBIAN_FRONTEND=noninteractive apt-get update -qq
+		DEBIAN_FRONTEND=noninteractive apt-get install -y -qq $missing || {
+			echo "apt install failed — install manually:$missing"; exit 1;
+		}
+	else
+		echo "missing prerequisites:$missing — install them, then re-run."; exit 1
+	fi
+fi
+TCPDUMP="$(command -v tcpdump)"
+
+# the Stop button signals the capture via posix_kill; warn early if absent
+if php -r 'exit(extension_loaded("posix") ? 0 : 1);' 2>/dev/null; then
+	:
+else
+	echo "   WARNING: PHP posix extension missing — captures will start but 'Stop now' will not work (Debian: apt-get install php*-common)"
+fi
 
 # capabilities instead of sudo: the web user can capture, but nothing else
 setcap cap_net_raw,cap_net_admin+ep "$TCPDUMP"

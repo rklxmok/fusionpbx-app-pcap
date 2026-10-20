@@ -56,7 +56,9 @@ FusionPBX defaults (schema for `v_pcap_captures`, app defaults, menu,
 permissions). It verifies at the end that the web user can actually capture —
 if that check fails, look at `getcap $(which tcpdump)`.
 
-Requires: `tcpdump`, `libcap2-bin` (for `setcap`), PHP `posix` extension.
+Prerequisites (`tcpdump`, `libcap2-bin`, PHP `posix`) are auto-installed via
+apt when missing; on non-Debian systems the installer tells you what to
+install and exits.
 
 ## Usage
 

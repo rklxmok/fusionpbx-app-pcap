@@ -21,9 +21,11 @@ if ($mode == 'start') {
 	$ifaces = pcap_interfaces();
 	if (!$ifaces) { echo "no interfaces found\n"; exit(1); }
 	$iface = $ifaces[0];
-	echo "starting 10s capture on $iface as ", get_current_user(), "\n";
-	list($ok, $msg) = pcap_start($database, $domain_uuid, $iface, 0, 0, 10, 'sip', 'cli-test');
+	$dur = intval($argv[2] ?? 10);
+	echo "starting {$dur}s capture on $iface as ", get_current_user(), "\n";
+	list($ok, $msg) = pcap_start($database, $domain_uuid, $iface, 0, 0, $dur, 'sip', 'cli-test-'.gmdate('His'));
 	echo $ok ? "OK: " : "FAIL: ", $msg, PHP_EOL;
+	if ($dur > 15) { echo "(running in background — stop it with: pcap-cli.php stop)\n"; exit(0); }
 	sleep(12);
 	pcap_reconcile($database);
 	$rows = $database->select("SELECT * FROM v_pcap_captures ORDER BY insert_date DESC LIMIT 1", null, 'all');
@@ -31,6 +33,18 @@ if ($mode == 'start') {
 		$files = pcap_files(pcap_dir($database, $domain_uuid), $r['pcap_filename']);
 		echo "status=", $r['pcap_status'], " files=", count($files), " bytes=", array_sum($files), PHP_EOL;
 	}
+}
+elseif ($mode == 'stop') {
+	// stop the newest running capture — exercises the exact pcap_stop() the
+	// UI's Stop-now button calls
+	$row = $database->select("SELECT pcap_uuid, pcap_filename FROM v_pcap_captures WHERE pcap_status = 'running' ORDER BY insert_date DESC LIMIT 1", null, 'row');
+	if (!$row) { echo "nothing running\n"; exit(0); }
+	list($ok, $msg) = pcap_stop($database, $row['pcap_uuid']);
+	echo ($ok ? "OK: " : "FAIL: "), $msg, PHP_EOL;
+	sleep(2);
+	pcap_reconcile($database);
+	$row2 = $database->select("SELECT pcap_status FROM v_pcap_captures WHERE pcap_uuid = :uuid", ['uuid' => $row['pcap_uuid']], 'row');
+	echo "status after stop: ", $row2['pcap_status'], PHP_EOL;
 }
 elseif ($mode == 'check') {
 	pcap_reconcile($database);

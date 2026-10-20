@@ -149,7 +149,9 @@ function pcap_start($database, $domain_uuid, $interface, $duration_h, $duration_
 
 // Stop a running capture by uuid (SIGINT to `timeout`, which forwards to
 // tcpdump — the pcap file is flushed and closed). Unprivileged: the process
-// belongs to the web user.
+// belongs to the web user. Signaled via the shell kill builtin — do NOT use
+// posix_kill/SIGINT here: many PHP web SAPI builds lack the posix extension
+// and those are fatal undefined-constant errors.
 // Returns [ok(bool), message(string)].
 function pcap_stop($database, $pcap_uuid) {
 	$row = $database->select("SELECT pcap_pid FROM v_pcap_captures WHERE pcap_uuid = :uuid AND pcap_status = 'running'", ['uuid' => $pcap_uuid], 'row');
@@ -157,13 +159,17 @@ function pcap_stop($database, $pcap_uuid) {
 		return [false, "Capture is not running."];
 	}
 	$pid = intval($row['pcap_pid']);
-	if ($pid > 1 && posix_kill($pid, SIGINT)) {
-		// tcpdump may take a moment to flush; reconcile will confirm later
-		return [true, "Stop signal sent."];
+	if ($pid <= 1) {
+		return [false, "Capture has no recorded pid."];
 	}
-	if ($pid > 1 && !file_exists("/proc/".$pid)) {
+	if (!file_exists("/proc/".$pid)) {
 		$database->execute("UPDATE v_pcap_captures SET pcap_status = 'completed', update_date = now() WHERE pcap_uuid = :uuid", ['uuid' => $pcap_uuid]);
 		return [true, "Capture had already finished."];
+	}
+	exec("kill -INT ".escapeshellarg($pid)." 2>/dev/null", $output, $rc);
+	if ($rc == 0) {
+		// tcpdump may take a moment to flush; reconcile will confirm later
+		return [true, "Stop signal sent."];
 	}
 	return [false, "Could not stop the capture process (pid ".$pid.")."];
 }

@@ -52,6 +52,10 @@
 
 //refresh statuses against /proc before rendering
 	pcap_reconcile($database);
+	$has_running = $database->select("SELECT count(*) AS n FROM v_pcap_captures WHERE pcap_status = 'running'", null, 'row');
+	if (($has_running['n'] ?? 0) > 0) {
+		header("Refresh: 10");
+	}
 
 //include the header
 	$document['title'] = $text['title-pcap'];
@@ -72,14 +76,15 @@
 
 //running capture status + stop
 	foreach ((array) $captures as $c) {
+		$running = true;
 		if ($c['pcap_status'] != 'running') { continue; }
 		$elapsed = time() - strtotime($c['insert_date']);
 		$remaining = max(0, intval($c['pcap_duration']) - $elapsed);
 		$total = 0;
 		foreach (pcap_files($dir, $c['pcap_filename']) as $size) { $total += $size; }
 		echo "<div style='background: #eaf4ea; border: 1px solid #b6d4b6; padding: 8px; margin-bottom: 10px;'>\n";
-		echo "<b>Running:</b> ".escape($c['pcap_filename']).".pcap &mdash; ".escape($c['pcap_interface'])." (".escape($c['pcap_filter'].")")
-			." &mdash; ".number_format($total / 1048576, 1)." MB &mdash; stops in ".sprintf('%d:%02d:%02d', intdiv($remaining, 3600), intdiv($remaining, 60) % 60, $remaining % 60)."\n";
+		echo "<b>Running:</b> ".escape($c['pcap_filename']).".pcap &mdash; ".escape($c['pcap_interface'])." &mdash; ".escape($c['pcap_filter'])
+			." &mdash; ".number_format($total / 1048576, 1)." MB" ." &mdash; planned ".sprintf('%d:%02d:%02d', intdiv($c['pcap_duration'], 3600), intdiv($c['pcap_duration'], 60) % 60, $c['pcap_duration'] % 60) ." &mdash; stops in ".sprintf('%d:%02d:%02d', intdiv($remaining, 3600), intdiv($remaining, 60) % 60, $remaining % 60)."\n";
 		echo "<form method='post' style='display:inline; float: right;'>\n";
 		echo "	<input type='hidden' name='action' value='stop'>\n";
 		echo "	<input type='hidden' name='id' value='".escape($c['pcap_uuid'])."'>\n";
@@ -89,6 +94,7 @@
 	}
 
 //start form
+	if (!$running) {
 	echo "<form name='frm' id='frm' method='post'>\n";
 	echo "<input type='hidden' name='action' value='start'>\n";
 	echo "<table class='form'>\n";
@@ -125,6 +131,7 @@
 	echo button::create(['type'=>'submit','label'=>$text['button-start'],'icon'=>'play']);
 	echo "</div>\n";
 	echo "</form>\n";
+	} // end start-form visibility
 	echo "<br /><br />\n";
 
 //capture list

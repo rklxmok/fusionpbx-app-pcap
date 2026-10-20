@@ -42,12 +42,8 @@ if [ -n "$missing" ]; then
 fi
 TCPDUMP="$(command -v tcpdump)"
 
-# the Stop button signals the capture via posix_kill; warn early if absent
-if php -r 'exit(extension_loaded("posix") ? 0 : 1);' 2>/dev/null; then
-	:
-else
-	echo "   WARNING: PHP posix extension missing — captures will start but 'Stop now' will not work (Debian: apt-get install php*-common)"
-fi
+# note: Stop-now signals via the shell 'kill' builtin — no PHP posix
+# extension is required (web SAPIs often lack it)
 
 # capabilities instead of sudo: the web user can capture, but nothing else
 setcap cap_net_raw,cap_net_admin+ep "$TCPDUMP"

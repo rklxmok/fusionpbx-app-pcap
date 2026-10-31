@@ -20,10 +20,10 @@ if [ "$(id -u)" != 0 ]; then
 fi
 if [ ! -d "$FUSIONPBX_DIR" ]; then
 	echo "FusionPBX not found at $FUSIONPBX_DIR (set FUSIONPBX_DIR=...)"; exit 1
+fi
 
 echo "== Packet Capture installer =="
 
-fi
 # prerequisites: install anything missing via apt when available,
 # otherwise bail with instructions
 missing=""
@@ -49,6 +49,36 @@ TCPDUMP="$(command -v tcpdump)"
 setcap cap_net_raw,cap_net_admin+ep "$TCPDUMP"
 echo "   tcpdump capabilities: $(getcap "$TCPDUMP")"
 
+# php-fpm sandbox: Debian's stock php-fpm units (trixie and later) restrict
+# the address families the service's children may open, and AF_PACKET is not
+# on the list. tcpdump spawned from a web request then dies instantly with
+# "Packet capture is not supported on that device" and every capture flips
+# to completed. The CLI verification below can't catch this (no filter in a
+# plain shell). A drop-in restating the stock families + AF_PACKET fixes it;
+# the line replaces the unit's list, so all stock families must be restated.
+if command -v systemctl >/dev/null 2>&1; then
+	FPM_UNIT="$(systemctl list-units --type=service --state=running --no-legend 2>/dev/null | awk '$1 ~ /^php[0-9.]*-fpm\.service$/ {print $1; exit}')"
+	if [ -n "$FPM_UNIT" ]; then
+		RAF="$(systemctl show -p RestrictAddressFamilies --value "$FPM_UNIT" 2>/dev/null || true)"
+		case " $RAF " in
+			*AF_PACKET*|"  ")	: ;;	# already allowed, or unit not restricted
+			*)
+				mkdir -p "/etc/systemd/system/$FPM_UNIT.d"
+				cat > "/etc/systemd/system/$FPM_UNIT.d/pcap-afpacket.conf" <<CONF
+# pcap app: captures spawned from php-fpm need an AF_PACKET socket.
+# This line replaces the unit's RestrictAddressFamilies list; the stock
+# families are restated with AF_PACKET appended.
+[Service]
+RestrictAddressFamilies=$RAF AF_PACKET
+CONF
+				systemctl daemon-reload
+				systemctl restart "$FPM_UNIT"
+				echo "   $FPM_UNIT: added AF_PACKET to its address-family sandbox and restarted it"
+				;;
+		esac
+	fi
+fi
+
 # capture directory: outside the web root, owned by the web user
 mkdir -p "$CAPTURE_DIR"
 chown "$WEB_USER:$WEB_USER" "$CAPTURE_DIR"
@@ -61,13 +91,13 @@ cp -r "$APP_DIR/app_config.php" "$APP_DIR/app_defaults.php" "$APP_DIR/app_langua
       "$FUSIONPBX_DIR/app/pcap/"
 chown -R "$WEB_USER:$WEB_USER" "$FUSIONPBX_DIR/app/pcap"
 
-# FusionPBX defaults: schema (v_pcap_captures), app, menu, permissions
+# FusionPBX defaults: schema (v_pcap_captures), app defaults, menu, permissions.
+# upgrade.php takes one option per run and never prompts; upgrade_menu.php is an interactive menu that loops forever
+# on piped input (its readline() has no end-of-file case), so it must not be used from a script.
 export TERM="${TERM:-xterm}"
-runuser -u "$WEB_USER" -- php "$FUSIONPBX_DIR/core/upgrade/upgrade_schema.php" >/dev/null 2>&1 \
-	|| echo "   (schema upgrade failed — run Advanced > Upgrade > Schema in the UI)"
-for step in 3 4 5; do
-	printf "$step\n0\n" | runuser -u "$WEB_USER" -- php "$FUSIONPBX_DIR/core/upgrade/upgrade_menu.php" >/dev/null 2>&1 \
-		|| { echo "   (defaults step $step failed — run Advanced > Upgrade in the UI)"; }
+for flag in --schema --defaults --menu --permissions; do
+	runuser -u "$WEB_USER" -- php "$FUSIONPBX_DIR/core/upgrade/upgrade.php" "$flag" </dev/null >/dev/null 2>&1 \
+		|| echo "   (upgrade.php $flag failed — run Advanced > Upgrade in the UI)"
 done
 
 # verify: can the web user actually capture?

@@ -61,6 +61,26 @@ missing; on non-Debian systems the installer tells you what to install and
 exits. Stop-now signals via the shell `kill` builtin, so no PHP `posix`
 extension is needed.
 
+> **Debian trixie note:** the stock `php*-fpm` unit sandboxes address
+> families without `AF_PACKET`, so tcpdump spawned from a web request dies
+> instantly with `Packet capture is not supported on that device` and every
+> capture flips to completed. The installer detects this and writes a systemd
+> drop-in (`…/php*-fpm.service.d/pcap-afpacket.conf`) restating the family
+> list with `AF_PACKET`, then restarts php-fpm.
+
+## Uninstall
+
+```
+sudo ./uninstall.sh                # keeps capture files
+sudo ./uninstall.sh --remove-files  # also deletes the capture directory
+```
+
+Stops any running capture, then removes the app files, the
+`v_pcap_captures` table, the menu item (and its group assignments), the
+`pcap_*` permissions and group grants, the `pcap::dir` default setting, the
+tcpdump capabilities, and the php-fpm AF_PACKET drop-in. Log out and back
+in to refresh the menu.
+
 ## Usage
 
 - **Switch → Packet Capture** in the FusionPBX menu.
